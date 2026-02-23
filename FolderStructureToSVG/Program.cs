@@ -6,7 +6,7 @@ var positionalArgs = new List<string>();
 
 foreach (var arg in args)
 {
-    if (arg is "--folders-only" or "-f")
+    if (arg is "--folders-only" or "-nf")
         foldersOnly = true;
     else
         positionalArgs.Add(arg);
@@ -14,10 +14,10 @@ foreach (var arg in args)
 
 if (positionalArgs.Count == 0)
 {
-    Console.WriteLine("Usage: FolderStructureToSVG <folder-path> [output-file] [--folders-only | -f]");
-    Console.WriteLine("  <folder-path>     Path to the folder to visualize.");
-    Console.WriteLine("  [output-file]     Optional output SVG file path (default: structure.svg).");
-    Console.WriteLine("  --folders-only -f Only show folders, ignore files.");
+    Console.WriteLine("Usage: FolderStructureToSVG <folder-path> [output-file] [--folders-only | -nf]");
+    Console.WriteLine("  <folder-path>       Path to the folder to visualize.");
+    Console.WriteLine("  [output-file]       Optional output SVG file path (default: structure.svg).");
+    Console.WriteLine("  --folders-only -nf  Only show folders, ignore files.");
     return 1;
 }
 
