@@ -1,7 +1,7 @@
 ﻿# FolderStructureToSVG
 
 ![Built with AI](https://img.shields.io/badge/Built_with-GitHub_Copilot-blue?logo=githubcopilot)
-![Build](https://github.com/jugR0jones/FolderStructureToSVG/actions/workflows/build.yml/badge.svg)
+[![Build](https://github.com/jugR0jones/FolderStructureToSVG/actions/workflows/build.yaml/badge.svg)](https://github.com/jugR0jones/FolderStructureToSVG/actions/workflows/build.yaml)
 ![Release](https://github.com/jugR0jones/FolderStructureToSVG/actions/workflows/release.yml/badge.svg)
 
 A .NET console application that generates an interactive SVG visualisation of a folder structure.
