@@ -21,7 +21,7 @@ string outputFile = args.Length >= 2 ? args[1] : "structure.svg";
 var root = BuildTree(folderPath);
 string svg = RenderSvg(root);
 
-File.WriteAllText(outputFile, svg, Encoding.UTF8);
+File.WriteAllText(outputFile, svg, new UTF8Encoding(false));
 Console.WriteLine($"SVG written to: {Path.GetFullPath(outputFile)}");
 return 0;
 
@@ -58,194 +58,159 @@ string RenderSvg(TreeNode rootNode)
     const int paddingBottom = 12;
     const int iconWidth = 18;
     const int indentWidth = 20;
+    const int midY = lineHeight / 2;
 
     int totalLines = CountNodes(rootNode);
     int svgHeight = paddingTop + totalLines * lineHeight + paddingBottom;
 
-    // Calculate max width based on depth and name lengths
     int maxDepth = 0;
     int maxNameLen = 0;
     CollectMetrics(rootNode, 0, ref maxDepth, ref maxNameLen);
     int svgWidth = paddingLeft + (maxDepth + 1) * indentWidth + iconWidth + maxNameLen * 9 + 40;
 
     var sb = new StringBuilder();
-    sb.AppendLine($"""<?xml version="1.0" encoding="UTF-8"?>""");
-    sb.AppendLine($"""<svg xmlns="http://www.w3.org/2000/svg" id="root-svg" width="{svgWidth}" height="{svgHeight}" viewBox="0 0 {svgWidth} {svgHeight}">""");
-    sb.AppendLine("""  <style>""");
-    sb.AppendLine("""    .folder { fill: #E8A87C; }""");
-    sb.AppendLine("""    .file   { fill: #95AABE; }""");
-    sb.AppendLine("""    .label  { font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; fill: #333; }""");
-    sb.AppendLine("""    .connector-line { stroke: #999; stroke-width: 1.5; fill: none; }""");
-    sb.AppendLine("""    .folder-row { cursor: pointer; }""");
-    sb.AppendLine("""    .folder-row:hover .label { fill: #0366d6; }""");
-    sb.AppendLine("""    .toggle { font-family: 'Consolas', monospace; font-size: 10px; fill: #999; }""");
-    sb.AppendLine("""  </style>""");
-    sb.AppendLine($"""  <rect id="bg" width="{svgWidth}" height="{svgHeight}" rx="8" fill="#FAFAFA" stroke="#E0E0E0" stroke-width="1"/>""");
+    sb.Append($"""<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" id="s" width="{svgWidth}" height="{svgHeight}" viewBox="0 0 {svgWidth} {svgHeight}">""");
 
-    sb.AppendLine($"""  <g id="tree" transform="translate(0,{paddingTop})">""");
+    // Styles with short class names
+    sb.Append("<style>"
+        + ".fo{fill:#E8A87C}"
+        + ".fi{fill:#95AABE}"
+        + ".l{font-family:'Consolas','Courier New',monospace;font-size:14px;fill:#333}"
+        + ".c{stroke:#999;stroke-width:1.5;fill:none}"
+        + ".fr{cursor:pointer}"
+        + ".fr:hover .l{fill:#0366d6}"
+        + ".t{font-family:'Consolas',monospace;font-size:10px;fill:#999}"
+        + "</style>");
+
+    sb.Append($"""<rect id="b" width="{svgWidth}" height="{svgHeight}" rx="8" fill="#FAFAFA" stroke="#E0E0E0" stroke-width="1"/>""");
+
+    // Reusable icon definitions
+    sb.Append("<defs>"
+        + """<g id="di"><rect y="4" width="14" height="4" rx="1" class="fo"/><rect y="6" width="16" height="10" rx="1" class="fo"/></g>"""
+        + """<g id="fi"><rect x="1" y="3" width="12" height="14" rx="1" class="fi"/><polyline points="10,3 14,7" fill="none" stroke="#fff" stroke-width="1"/></g>"""
+        + "</defs>");
+
+    sb.Append($"""<g id="tree" transform="translate(0,{paddingTop})">""");
     nodeIdCounter = 0;
     currentY = 0;
-    RenderNode(sb, rootNode, new List<bool>(), paddingLeft, lineHeight, iconWidth, indentWidth);
-    sb.AppendLine("  </g>");
+    RenderNode(sb, rootNode, new List<bool>(), paddingLeft, lineHeight, iconWidth, indentWidth, midY);
+    sb.Append("</g>");
 
-    sb.AppendLine("""  <script type="text/ecmascript"><![CDATA[""");
-    sb.AppendLine($$"""
-    var lineHeight = {{lineHeight}};
-    var paddingTop = {{paddingTop}};
-    var paddingBottom = {{paddingBottom}};
+    // Minified JavaScript
+    sb.Append("<script type=\"text/ecmascript\"><![CDATA[");
+    sb.Append($"var L={lineHeight},T={paddingTop},B={paddingBottom};");
+    sb.Append(
+        "function tg(e){"
+        + "var r=e.currentTarget,i=r.getAttribute('data-node-id'),"
+        + "c=document.getElementById('ch-'+i),"
+        + "t=document.getElementById('t-'+i);"
+        + "if(!c)return;"
+        + "var h=c.getAttribute('data-c')==='1';"
+        + "if(h){c.style.display='';c.setAttribute('data-c','0');if(t)t.textContent='\\u25BC'}"
+        + "else{c.style.display='none';c.setAttribute('data-c','1');if(t)t.textContent='\\u25B6'}"
+        + "lc()}"
+        + "function lc(){"
+        + "var t=document.getElementById('tree'),y=lg(t,0),"
+        + "h=T+y+B,s=document.getElementById('s');"
+        + "s.setAttribute('height',h);"
+        + "s.setAttribute('viewBox','0 0 '+s.getAttribute('width')+' '+h);"
+        + "document.getElementById('b').setAttribute('height',h)}"
+        + "function lg(g,y){"
+        + "for(var i=0;i<g.children.length;i++){"
+        + "var c=g.children[i];"
+        + "if(c.tagName==='g'&&c.classList.contains('n')){"
+        + "var r=c.getElementsByClassName('r');"
+        + "if(r.length>0){r[0].setAttribute('transform','translate(0,'+y+')');y+=L}"
+        + "var ch=c.getElementsByClassName('ch');"
+        + "if(ch.length>0&&ch[0].parentNode===c&&ch[0].style.display!=='none')y=lg(ch[0],y)}}"
+        + "return y}"
+        + "var f=document.querySelectorAll('.fr');"
+        + "for(var i=0;i<f.length;i++)f[i].addEventListener('click',tg);"
+        + "lc()");
+    sb.Append("]]></script>");
 
-    function toggleFolder(evt) {
-      var row = evt.currentTarget;
-      var nodeId = row.getAttribute('data-node-id');
-      var childrenGroup = document.getElementById('children-' + nodeId);
-      var toggleIcon = document.getElementById('toggle-' + nodeId);
-      if (!childrenGroup) return;
-
-      var isHidden = childrenGroup.getAttribute('data-collapsed') === 'true';
-      if (isHidden) {
-        childrenGroup.style.display = '';
-        childrenGroup.setAttribute('data-collapsed', 'false');
-        if (toggleIcon) toggleIcon.textContent = '\u25BC';
-      } else {
-        childrenGroup.style.display = 'none';
-        childrenGroup.setAttribute('data-collapsed', 'true');
-        if (toggleIcon) toggleIcon.textContent = '\u25B6';
-      }
-
-      recalculatePositions();
-    }
-
-    function recalculatePositions() {
-      var tree = document.getElementById('tree');
-      var currentY = 0;
-      currentY = layoutGroup(tree, currentY);
-
-      var totalHeight = paddingTop + currentY + paddingBottom;
-      var svg = document.getElementById('root-svg');
-      svg.setAttribute('height', totalHeight);
-      svg.setAttribute('viewBox', '0 0 ' + svg.getAttribute('width') + ' ' + totalHeight);
-      document.getElementById('bg').setAttribute('height', totalHeight);
-    }
-
-    function layoutGroup(group, y) {
-      for (var i = 0; i < group.children.length; i++) {
-        var child = group.children[i];
-        if (child.tagName === 'g' && child.classList.contains('node-group')) {
-          var rows = child.getElementsByClassName('row');
-          if (rows.length > 0) {
-            rows[0].setAttribute('transform', 'translate(0,' + y + ')');
-            y += lineHeight;
-          }
-          var childGroups = child.getElementsByClassName('children-group');
-          if (childGroups.length > 0 && childGroups[0].parentNode === child && childGroups[0].style.display !== 'none') {
-            y = layoutGroup(childGroups[0], y);
-          }
-        }
-      }
-      return y;
-    }
-
-    var folders = document.querySelectorAll('.folder-row');
-    for (var i = 0; i < folders.length; i++) {
-      folders[i].addEventListener('click', toggleFolder);
-    }
-
-    recalculatePositions();
-  """);
-    sb.AppendLine("""  ]]></script>""");
-
-    sb.AppendLine("</svg>");
+    sb.Append("</svg>");
     return sb.ToString();
 }
 
 void RenderNode(StringBuilder sb, TreeNode node, List<bool> ancestorHasMore,
-    float paddingLeft, int lineHeight, int iconWidth, int indentWidth)
+    float paddingLeft, int lineHeight, int iconWidth, int indentWidth, int midY)
 {
     int currentId = nodeIdCounter++;
     int depth = ancestorHasMore.Count;
+    bool hasChildren = node.Children.Count > 0;
+    bool isClickable = node.IsDirectory && hasChildren;
 
-    sb.AppendLine($"""    <g class="node-group" id="node-{currentId}">""");
+    sb.Append($"<g class=\"n\" id=\"n-{currentId}\">");
 
-    string rowClass = node.IsDirectory && node.Children.Count > 0 ? "row folder-row" : "row";
-    string dataAttr = node.IsDirectory && node.Children.Count > 0 ? " data-node-id=\"" + currentId + "\"" : "";
-    sb.AppendLine($"""      <g class="{rowClass}"{dataAttr} transform="translate(0,{currentY})">""");
+    if (isClickable)
+        sb.Append($"<g class=\"r fr\" data-node-id=\"{currentId}\" transform=\"translate(0,{currentY})\">");
+    else
+        sb.Append($"<g class=\"r\" transform=\"translate(0,{currentY})\">");
 
     currentY += lineHeight;
 
-    // Draw connector lines for this row
+    // Connector lines
     if (depth > 0)
     {
-        int midY = lineHeight / 2;
-
-        // Vertical continuation lines for ancestor levels
         for (int i = 0; i < depth - 1; i++)
         {
             if (ancestorHasMore[i])
             {
                 float lx = paddingLeft + i * indentWidth + indentWidth / 2f;
-                sb.AppendLine($"""        <line x1="{lx}" y1="0" x2="{lx}" y2="{lineHeight}" class="connector-line"/>""");
+                sb.Append($"<line x1=\"{lx}\" y1=\"0\" x2=\"{lx}\" y2=\"{lineHeight}\" class=\"c\"/>");
             }
         }
 
-        // Connector for this node's level
         bool isLast = !ancestorHasMore[^1];
         float connX = paddingLeft + (depth - 1) * indentWidth + indentWidth / 2f;
         float connEndX = paddingLeft + depth * indentWidth;
 
-        // Vertical part: top to midpoint
-        sb.AppendLine($"""        <line x1="{connX}" y1="0" x2="{connX}" y2="{midY}" class="connector-line"/>""");
+        // Merged vertical: full height if not last, top-to-mid if last
+        int vEnd = isLast ? midY : lineHeight;
+        sb.Append($"<line x1=\"{connX}\" y1=\"0\" x2=\"{connX}\" y2=\"{vEnd}\" class=\"c\"/>");
 
-        // If not last child, continue vertical line below midpoint
-        if (!isLast)
-        {
-            sb.AppendLine($"""        <line x1="{connX}" y1="{midY}" x2="{connX}" y2="{lineHeight}" class="connector-line"/>""");
-        }
-
-        // Horizontal part: from vertical line to icon area
-        sb.AppendLine($"""        <line x1="{connX}" y1="{midY}" x2="{connEndX}" y2="{midY}" class="connector-line"/>""");
+        // Horizontal
+        sb.Append($"<line x1=\"{connX}\" y1=\"{midY}\" x2=\"{connEndX}\" y2=\"{midY}\" class=\"c\"/>");
     }
 
     float x = paddingLeft + depth * indentWidth;
 
-    // Toggle indicator for folders with children
-    if (node.IsDirectory && node.Children.Count > 0)
-        sb.AppendLine($"""        <text id="toggle-{currentId}" x="{x - 2}" y="16" class="toggle">▼</text>""");
+    // Toggle indicator
+    if (isClickable)
+        sb.Append($"<text id=\"t-{currentId}\" x=\"{x - 2}\" y=\"16\" class=\"t\">\u25BC</text>");
 
-    // Draw icon
+    // Icon via <use>
     if (node.IsDirectory)
-    {
-        sb.AppendLine($"""        <rect x="{x}" y="4" width="14" height="4" rx="1" class="folder"/>""");
-        sb.AppendLine($"""        <rect x="{x}" y="6" width="16" height="10" rx="1" class="folder"/>""");
-    }
+        sb.Append($"<use href=\"#di\" x=\"{x}\"/>");
     else
-    {
-        sb.AppendLine($"""        <rect x="{x + 1}" y="3" width="12" height="14" rx="1" class="file"/>""");
-        sb.AppendLine($"""        <polyline points="{x + 9},3 {x + 13},7" fill="none" stroke="#fff" stroke-width="1"/>""");
-    }
+        sb.Append($"<use href=\"#fi\" x=\"{x}\"/>");
 
     x += iconWidth;
 
-    // Draw label
-    string fontWeight = node.IsDirectory ? "bold" : "normal";
-    sb.AppendLine($"""        <text x="{x}" y="16" class="label" font-weight="{fontWeight}">{EscapeXml(node.Name)}</text>""");
+    // Label
+    if (node.IsDirectory)
+        sb.Append($"<text x=\"{x}\" y=\"16\" class=\"l\" font-weight=\"bold\">{EscapeXml(node.Name)}</text>");
+    else
+        sb.Append($"<text x=\"{x}\" y=\"16\" class=\"l\">{EscapeXml(node.Name)}</text>");
 
-    sb.AppendLine("      </g>");
+    sb.Append("</g>");
 
-    // Render children
-    if (node.Children.Count > 0)
+    // Children
+    if (hasChildren)
     {
-        sb.AppendLine($"""      <g class="children-group" id="children-{currentId}" data-collapsed="false">""");
+        sb.Append($"<g class=\"ch\" id=\"ch-{currentId}\">");
         for (int i = 0; i < node.Children.Count; i++)
         {
             bool isLast = i == node.Children.Count - 1;
             ancestorHasMore.Add(!isLast);
-            RenderNode(sb, node.Children[i], ancestorHasMore, paddingLeft, lineHeight, iconWidth, indentWidth);
+            RenderNode(sb, node.Children[i], ancestorHasMore, paddingLeft, lineHeight, iconWidth, indentWidth, midY);
             ancestorHasMore.RemoveAt(ancestorHasMore.Count - 1);
         }
-        sb.AppendLine("      </g>");
+        sb.Append("</g>");
     }
 
-    sb.AppendLine("    </g>");
+    sb.Append("</g>");
 }
 
 int CountNodes(TreeNode node)
