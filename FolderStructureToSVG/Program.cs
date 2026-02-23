@@ -57,20 +57,16 @@ string RenderSvg(TreeNode rootNode)
     const int paddingTop = 12;
     const int paddingBottom = 12;
     const int iconWidth = 18;
-    const float charWidth = 8.5f;
+    const int indentWidth = 20;
 
     int totalLines = CountNodes(rootNode);
     int svgHeight = paddingTop + totalLines * lineHeight + paddingBottom;
 
-    var tempLines = new List<(string prefix, string name)>();
-    CollectPrefixes(rootNode, tempLines, new List<bool>());
-    float maxWidth = 0;
-    foreach (var (prefix, name) in tempLines)
-    {
-        float width = paddingLeft + prefix.Length * charWidth + iconWidth + name.Length * charWidth;
-        if (width > maxWidth) maxWidth = width;
-    }
-    int svgWidth = (int)maxWidth + 40;
+    // Calculate max width based on depth and name lengths
+    int maxDepth = 0;
+    int maxNameLen = 0;
+    CollectMetrics(rootNode, 0, ref maxDepth, ref maxNameLen);
+    int svgWidth = paddingLeft + (maxDepth + 1) * indentWidth + iconWidth + maxNameLen * 9 + 40;
 
     var sb = new StringBuilder();
     sb.AppendLine($"""<?xml version="1.0" encoding="UTF-8"?>""");
@@ -79,7 +75,7 @@ string RenderSvg(TreeNode rootNode)
     sb.AppendLine("""    .folder { fill: #E8A87C; }""");
     sb.AppendLine("""    .file   { fill: #95AABE; }""");
     sb.AppendLine("""    .label  { font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; fill: #333; }""");
-    sb.AppendLine("""    .connector { fill: #999; }""");
+    sb.AppendLine("""    .connector-line { stroke: #999; stroke-width: 1.5; fill: none; }""");
     sb.AppendLine("""    .folder-row { cursor: pointer; }""");
     sb.AppendLine("""    .folder-row:hover .label { fill: #0366d6; }""");
     sb.AppendLine("""    .toggle { font-family: 'Consolas', monospace; font-size: 10px; fill: #999; }""");
@@ -89,7 +85,7 @@ string RenderSvg(TreeNode rootNode)
     sb.AppendLine($"""  <g id="tree" transform="translate(0,{paddingTop})">""");
     nodeIdCounter = 0;
     currentY = 0;
-    RenderNode(sb, rootNode, new List<bool>(), paddingLeft, lineHeight, iconWidth, charWidth);
+    RenderNode(sb, rootNode, new List<bool>(), paddingLeft, lineHeight, iconWidth, indentWidth);
     sb.AppendLine("  </g>");
 
     sb.AppendLine("""  <script type="text/ecmascript"><![CDATA[""");
@@ -149,13 +145,11 @@ string RenderSvg(TreeNode rootNode)
       return y;
     }
 
-    // Attach click handlers
     var folders = document.querySelectorAll('.folder-row');
     for (var i = 0; i < folders.length; i++) {
       folders[i].addEventListener('click', toggleFolder);
     }
 
-    // Initial layout on load
     recalculatePositions();
   """);
     sb.AppendLine("""  ]]></script>""");
@@ -165,38 +159,59 @@ string RenderSvg(TreeNode rootNode)
 }
 
 void RenderNode(StringBuilder sb, TreeNode node, List<bool> ancestorHasMore,
-    float paddingLeft, int lineHeight, int iconWidth, float charWidth)
+    float paddingLeft, int lineHeight, int iconWidth, int indentWidth)
 {
     int currentId = nodeIdCounter++;
-
-    var prefixBuilder = new StringBuilder();
-    if (ancestorHasMore.Count > 0)
-    {
-        for (int i = 0; i < ancestorHasMore.Count - 1; i++)
-            prefixBuilder.Append(ancestorHasMore[i] ? "│   " : "    ");
-        prefixBuilder.Append(ancestorHasMore[^1] ? "├── " : "└── ");
-    }
-    string prefix = prefixBuilder.ToString();
+    int depth = ancestorHasMore.Count;
 
     sb.AppendLine($"""    <g class="node-group" id="node-{currentId}">""");
 
     string rowClass = node.IsDirectory && node.Children.Count > 0 ? "row folder-row" : "row";
-    string dataAttr = node.IsDirectory && node.Children.Count > 0 ? $""" data-node-id="{currentId}" """ : "";
+    string dataAttr = node.IsDirectory && node.Children.Count > 0 ? " data-node-id=\"" + currentId + "\"" : "";
     sb.AppendLine($"""      <g class="{rowClass}"{dataAttr} transform="translate(0,{currentY})">""");
 
     currentY += lineHeight;
 
-    float x = paddingLeft;
-
-    if (prefix.Length > 0)
+    // Draw connector lines for this row
+    if (depth > 0)
     {
-        sb.AppendLine($"""        <text x="{x}" y="16" class="label connector">{EscapeXml(prefix)}</text>""");
-        x += prefix.Length * charWidth;
+        int midY = lineHeight / 2;
+
+        // Vertical continuation lines for ancestor levels
+        for (int i = 0; i < depth - 1; i++)
+        {
+            if (ancestorHasMore[i])
+            {
+                float lx = paddingLeft + i * indentWidth + indentWidth / 2f;
+                sb.AppendLine($"""        <line x1="{lx}" y1="0" x2="{lx}" y2="{lineHeight}" class="connector-line"/>""");
+            }
+        }
+
+        // Connector for this node's level
+        bool isLast = !ancestorHasMore[^1];
+        float connX = paddingLeft + (depth - 1) * indentWidth + indentWidth / 2f;
+        float connEndX = paddingLeft + depth * indentWidth;
+
+        // Vertical part: top to midpoint
+        sb.AppendLine($"""        <line x1="{connX}" y1="0" x2="{connX}" y2="{midY}" class="connector-line"/>""");
+
+        // If not last child, continue vertical line below midpoint
+        if (!isLast)
+        {
+            sb.AppendLine($"""        <line x1="{connX}" y1="{midY}" x2="{connX}" y2="{lineHeight}" class="connector-line"/>""");
+        }
+
+        // Horizontal part: from vertical line to icon area
+        sb.AppendLine($"""        <line x1="{connX}" y1="{midY}" x2="{connEndX}" y2="{midY}" class="connector-line"/>""");
     }
 
+    float x = paddingLeft + depth * indentWidth;
+
+    // Toggle indicator for folders with children
     if (node.IsDirectory && node.Children.Count > 0)
         sb.AppendLine($"""        <text id="toggle-{currentId}" x="{x - 2}" y="16" class="toggle">▼</text>""");
 
+    // Draw icon
     if (node.IsDirectory)
     {
         sb.AppendLine($"""        <rect x="{x}" y="4" width="14" height="4" rx="1" class="folder"/>""");
@@ -210,11 +225,13 @@ void RenderNode(StringBuilder sb, TreeNode node, List<bool> ancestorHasMore,
 
     x += iconWidth;
 
+    // Draw label
     string fontWeight = node.IsDirectory ? "bold" : "normal";
     sb.AppendLine($"""        <text x="{x}" y="16" class="label" font-weight="{fontWeight}">{EscapeXml(node.Name)}</text>""");
 
     sb.AppendLine("      </g>");
 
+    // Render children
     if (node.Children.Count > 0)
     {
         sb.AppendLine($"""      <g class="children-group" id="children-{currentId}" data-collapsed="false">""");
@@ -222,7 +239,7 @@ void RenderNode(StringBuilder sb, TreeNode node, List<bool> ancestorHasMore,
         {
             bool isLast = i == node.Children.Count - 1;
             ancestorHasMore.Add(!isLast);
-            RenderNode(sb, node.Children[i], ancestorHasMore, paddingLeft, lineHeight, iconWidth, charWidth);
+            RenderNode(sb, node.Children[i], ancestorHasMore, paddingLeft, lineHeight, iconWidth, indentWidth);
             ancestorHasMore.RemoveAt(ancestorHasMore.Count - 1);
         }
         sb.AppendLine("      </g>");
@@ -239,24 +256,12 @@ int CountNodes(TreeNode node)
     return count;
 }
 
-void CollectPrefixes(TreeNode node, List<(string prefix, string name)> list, List<bool> ancestorHasMore)
+void CollectMetrics(TreeNode node, int depth, ref int maxDepth, ref int maxNameLen)
 {
-    var prefixBuilder = new StringBuilder();
-    if (ancestorHasMore.Count > 0)
-    {
-        for (int i = 0; i < ancestorHasMore.Count - 1; i++)
-            prefixBuilder.Append(ancestorHasMore[i] ? "│   " : "    ");
-        prefixBuilder.Append(ancestorHasMore[^1] ? "├── " : "└── ");
-    }
-    list.Add((prefixBuilder.ToString(), node.Name));
-
-    for (int i = 0; i < node.Children.Count; i++)
-    {
-        bool isLast = i == node.Children.Count - 1;
-        ancestorHasMore.Add(!isLast);
-        CollectPrefixes(node.Children[i], list, ancestorHasMore);
-        ancestorHasMore.RemoveAt(ancestorHasMore.Count - 1);
-    }
+    if (depth > maxDepth) maxDepth = depth;
+    if (node.Name.Length > maxNameLen) maxNameLen = node.Name.Length;
+    foreach (var child in node.Children)
+        CollectMetrics(child, depth + 1, ref maxDepth, ref maxNameLen);
 }
 
 string EscapeXml(string text) =>
