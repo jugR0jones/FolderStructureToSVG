@@ -2,23 +2,57 @@
 
 // Parse arguments
 bool foldersOnly = false;
+string? excludeValue = null;
 var positionalArgs = new List<string>();
 
-foreach (var arg in args)
+for (int i = 0; i < args.Length; i++)
 {
-    if (arg is "--folders-only" or "-nf")
+    if (args[i] is "--folders-only" or "-nf")
+    {
         foldersOnly = true;
+    }
+    else if (args[i] is "--exclude" or "-e")
+    {
+        if (i + 1 < args.Length)
+            excludeValue = args[++i];
+        else
+        {
+            Console.Error.WriteLine("Error: --exclude requires a comma-separated list of file names or extensions.");
+            return 1;
+        }
+    }
     else
-        positionalArgs.Add(arg);
+    {
+        positionalArgs.Add(args[i]);
+    }
 }
 
 if (positionalArgs.Count == 0)
 {
-    Console.WriteLine("Usage: FolderStructureToSVG <folder-path> [output-file] [--folders-only | -nf]");
+    Console.WriteLine("Usage: FolderStructureToSVG <folder-path> [output-file] [options]");
+    Console.WriteLine();
     Console.WriteLine("  <folder-path>       Path to the folder to visualize.");
     Console.WriteLine("  [output-file]       Optional output SVG file path (default: structure.svg).");
+    Console.WriteLine();
+    Console.WriteLine("Options:");
     Console.WriteLine("  --folders-only -nf  Only show folders, ignore files.");
+    Console.WriteLine("  --exclude, -e       Comma-separated list of file names or extensions to exclude.");
+    Console.WriteLine("                      e.g. --exclude .git,.bin,thumbs.db");
     return 1;
+}
+
+// Build the exclude set (lowercased for case-insensitive matching)
+var excludeSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+if (excludeValue != null)
+{
+    foreach (var entry in excludeValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        excludeSet.Add(entry);
+}
+
+// Warn if both --folders-only and --exclude are used
+if (foldersOnly && excludeSet.Count > 0)
+{
+    Console.WriteLine("Warning: --exclude is ignored because --folders-only is active. Files are already excluded.");
 }
 
 string folderPath = Path.GetFullPath(positionalArgs[0]);
@@ -31,7 +65,7 @@ if (!Directory.Exists(folderPath))
 
 string outputFile = positionalArgs.Count >= 2 ? positionalArgs[1] : "structure.svg";
 
-var root = BuildTree(folderPath, foldersOnly);
+var root = BuildTree(folderPath, foldersOnly, excludeSet);
 string svg = RenderSvg(root);
 
 File.WriteAllText(outputFile, svg, new UTF8Encoding(false));
@@ -40,7 +74,7 @@ return 0;
 
 // ── Tree model ──────────────────────────────────────────────────────────────
 
-TreeNode BuildTree(string path, bool dirsOnly)
+TreeNode BuildTree(string path, bool dirsOnly, HashSet<string> exclusions)
 {
     var dirInfo = new DirectoryInfo(path);
     var node = new TreeNode(dirInfo.Name, IsDirectory: true);
@@ -48,12 +82,19 @@ TreeNode BuildTree(string path, bool dirsOnly)
     try
     {
         foreach (var dir in dirInfo.GetDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
-            node.Children.Add(BuildTree(dir.FullName, dirsOnly));
+            node.Children.Add(BuildTree(dir.FullName, dirsOnly, exclusions));
 
         if (!dirsOnly)
         {
             foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                // Skip if the file name or its extension matches an exclude entry
+                if (exclusions.Count > 0 &&
+                    (exclusions.Contains(file.Name) || exclusions.Contains(file.Extension)))
+                    continue;
+
                 node.Children.Add(new TreeNode(file.Name, IsDirectory: false));
+            }
         }
     }
     catch (UnauthorizedAccessException) { }
