@@ -16,10 +16,6 @@ jobs:
         include:
           - rid: win-x64
             artifact: FolderStructureToSVG-win-x64.zip
-          - rid: linux-x64
-            artifact: FolderStructureToSVG-linux-x64.tar.gz
-          - rid: osx-x64
-            artifact: FolderStructureToSVG-osx-x64.tar.gz
 
     steps:
       - uses: actions/checkout@v4
@@ -42,10 +38,6 @@ jobs:
       - name: Package (Windows)
         if: matrix.rid == 'win-x64'
         run: cd publish && zip -r ../${{ matrix.artifact }} .
-
-      - name: Package (Linux/macOS)
-        if: matrix.rid != 'win-x64'
-        run: cd publish && tar -czf ../${{ matrix.artifact }} .
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
