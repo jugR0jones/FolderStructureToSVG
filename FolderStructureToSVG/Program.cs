@@ -1,14 +1,27 @@
 ﻿using System.Text;
 
-if (args.Length == 0)
+// Parse arguments
+bool foldersOnly = false;
+var positionalArgs = new List<string>();
+
+foreach (var arg in args)
 {
-    Console.WriteLine("Usage: FolderStructureToSVG <folder-path> [output-file]");
-    Console.WriteLine("  <folder-path>   Path to the folder to visualize.");
-    Console.WriteLine("  [output-file]   Optional output SVG file path (default: structure.svg).");
+    if (arg is "--folders-only" or "-f")
+        foldersOnly = true;
+    else
+        positionalArgs.Add(arg);
+}
+
+if (positionalArgs.Count == 0)
+{
+    Console.WriteLine("Usage: FolderStructureToSVG <folder-path> [output-file] [--folders-only | -f]");
+    Console.WriteLine("  <folder-path>     Path to the folder to visualize.");
+    Console.WriteLine("  [output-file]     Optional output SVG file path (default: structure.svg).");
+    Console.WriteLine("  --folders-only -f Only show folders, ignore files.");
     return 1;
 }
 
-string folderPath = Path.GetFullPath(args[0]);
+string folderPath = Path.GetFullPath(positionalArgs[0]);
 
 if (!Directory.Exists(folderPath))
 {
@@ -16,9 +29,9 @@ if (!Directory.Exists(folderPath))
     return 1;
 }
 
-string outputFile = args.Length >= 2 ? args[1] : "structure.svg";
+string outputFile = positionalArgs.Count >= 2 ? positionalArgs[1] : "structure.svg";
 
-var root = BuildTree(folderPath);
+var root = BuildTree(folderPath, foldersOnly);
 string svg = RenderSvg(root);
 
 File.WriteAllText(outputFile, svg, new UTF8Encoding(false));
@@ -27,7 +40,7 @@ return 0;
 
 // ── Tree model ──────────────────────────────────────────────────────────────
 
-TreeNode BuildTree(string path)
+TreeNode BuildTree(string path, bool dirsOnly)
 {
     var dirInfo = new DirectoryInfo(path);
     var node = new TreeNode(dirInfo.Name, IsDirectory: true);
@@ -35,10 +48,13 @@ TreeNode BuildTree(string path)
     try
     {
         foreach (var dir in dirInfo.GetDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
-            node.Children.Add(BuildTree(dir.FullName));
+            node.Children.Add(BuildTree(dir.FullName, dirsOnly));
 
-        foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
-            node.Children.Add(new TreeNode(file.Name, IsDirectory: false));
+        if (!dirsOnly)
+        {
+            foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
+                node.Children.Add(new TreeNode(file.Name, IsDirectory: false));
+        }
     }
     catch (UnauthorizedAccessException) { }
 
