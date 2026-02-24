@@ -30,7 +30,7 @@ namespace FolderStructureToSVG
 
                 bool foldersOnly = false;
                 
-                List<string> positionalArgs = new List<string>();
+                List<string> positionalArgs = [];
 
                 if (args.Length == 0)
                 {
@@ -62,6 +62,8 @@ namespace FolderStructureToSVG
                         {
                             Console.Error.WriteLine("Error: --exclude requires a comma-separated list of file names or extensions.");
 
+                            PrintUsage();
+                            
                             commandLineArguments = null;
                             
                             return false;
@@ -77,6 +79,8 @@ namespace FolderStructureToSVG
                 {
                     Console.Error.WriteLine("Error: Missing required <folder-path> argument.");
                     
+                    PrintUsage();
+                    
                     commandLineArguments = null;
                             
                     return false;
@@ -88,10 +92,11 @@ namespace FolderStructureToSVG
                 {
                     outputFile = positionalArgs[1];
                 }
-
-                // Warn if both --folders-only and --exclude are used
-                if (foldersOnly && excludeSet.Count > 0)
+                
+                if (foldersOnly && 
+                    excludeSet.Count > 0)
                 {
+                    // Warn if both --folders-only and --exclude are used
                     Console.WriteLine("Warning: --exclude is ignored because --folders-only is active. Files are already excluded.");
                 }
                 
