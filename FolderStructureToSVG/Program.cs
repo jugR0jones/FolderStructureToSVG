@@ -7,6 +7,19 @@ internal class Program
         public readonly List<TreeNode> Children = [];
     }
     
+    private static void PrintUsage()
+    {
+        Console.WriteLine("Usage: FolderStructureToSVG <folder-path> [output-file] [options]");
+        Console.WriteLine();
+        Console.WriteLine("  <folder-path>       Path to the folder to visualize.");
+        Console.WriteLine("  [output-file]       Optional output SVG file path (default: structure.svg).");
+        Console.WriteLine();
+        Console.WriteLine("Options:");
+        Console.WriteLine("  --folders-only -nf  Only show folders, ignore files.");
+        Console.WriteLine("  --exclude, -e       Comma-separated list of file names or extensions to exclude.");
+        Console.WriteLine("                      e.g. --exclude .git,.bin,thumbs.db");
+    }
+    
     private static int Main(string[] args)
     {
         // Parse arguments
@@ -23,10 +36,13 @@ internal class Program
             else if (args[i] is "--exclude" or "-e")
             {
                 if (i + 1 < args.Length)
+                {
                     excludeValue = args[++i];
+                }
                 else
                 {
                     Console.Error.WriteLine("Error: --exclude requires a comma-separated list of file names or extensions.");
+                    
                     return 1;
                 }
             }
@@ -38,15 +54,8 @@ internal class Program
 
         if (positionalArgs.Count == 0)
         {
-            Console.WriteLine("Usage: FolderStructureToSVG <folder-path> [output-file] [options]");
-            Console.WriteLine();
-            Console.WriteLine("  <folder-path>       Path to the folder to visualize.");
-            Console.WriteLine("  [output-file]       Optional output SVG file path (default: structure.svg).");
-            Console.WriteLine();
-            Console.WriteLine("Options:");
-            Console.WriteLine("  --folders-only -nf  Only show folders, ignore files.");
-            Console.WriteLine("  --exclude, -e       Comma-separated list of file names or extensions to exclude.");
-            Console.WriteLine("                      e.g. --exclude .git,.bin,thumbs.db");
+            PrintUsage();
+
             return 1;
         }
 
