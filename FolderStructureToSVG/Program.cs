@@ -8,7 +8,105 @@ namespace FolderStructureToSVG
         {
             public readonly List<TreeNode> Children = [];
         }
-    
+        
+        private class CommandLineArguments
+        {
+            public required HashSet<string> ExcludeSet;
+
+            public required string FolderPath;
+            public required string OutputFile;
+            
+            public bool FoldersOnly;
+        }
+        
+        private static class CommandLine
+        {
+            public static bool TryParse(string[] args, out CommandLineArguments? commandLineArguments)
+            {
+                HashSet<string> excludeSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                
+                string folderPath;
+                string outputFile = "structure.svg";
+
+                bool foldersOnly = false;
+                
+                List<string> positionalArgs = new List<string>();
+
+                if (args.Length == 0)
+                {
+                    PrintUsage();
+
+                    commandLineArguments = null;
+                    
+                    return false;
+                }
+                
+                for (int i = 0; i < args.Length; i++)
+                {
+                    if (args[i] is "--folders-only" or "-nf")
+                    {
+                        foldersOnly = true;
+                    }
+                    else if (args[i] is "--exclude" or "-e")
+                    {
+                        if (i + 1 < args.Length)
+                        {
+                            string excludeValue = args[++i];
+                            string[] exludedEntries = excludeValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                            foreach (string entry in exludedEntries)
+                            {
+                                excludeSet.Add(entry);
+                            }
+                        }
+                        else
+                        {
+                            Console.Error.WriteLine("Error: --exclude requires a comma-separated list of file names or extensions.");
+
+                            commandLineArguments = null;
+                            
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        positionalArgs.Add(args[i]);
+                    }
+                }
+
+                if (positionalArgs.Count == 0)
+                {
+                    Console.Error.WriteLine("Error: Missing required <folder-path> argument.");
+                    
+                    commandLineArguments = null;
+                            
+                    return false;
+                }
+
+                folderPath = Path.GetFullPath(positionalArgs[0]);
+                
+                if (positionalArgs.Count >= 2)
+                {
+                    outputFile = positionalArgs[1];
+                }
+
+                // Warn if both --folders-only and --exclude are used
+                if (foldersOnly && excludeSet.Count > 0)
+                {
+                    Console.WriteLine("Warning: --exclude is ignored because --folders-only is active. Files are already excluded.");
+                }
+                
+                commandLineArguments = new CommandLineArguments
+                {
+                    ExcludeSet = excludeSet,
+                    FolderPath = folderPath,
+                    OutputFile = outputFile,
+                    FoldersOnly = foldersOnly
+                };
+                
+                return true;
+            }
+        }
+        
         private static void PrintUsage()
         {
             Console.WriteLine("Usage: FolderStructureToSVG <folder-path> [output-file] [options]");
@@ -24,82 +122,28 @@ namespace FolderStructureToSVG
     
         private static int Main(string[] args)
         {
-            // Parse arguments
-            bool foldersOnly = false;
-            string? excludeValue = null;
-            List<string> positionalArgs = new List<string>();
-
-            if (args.Length == 0)
+            if (!CommandLine.TryParse(args, out CommandLineArguments? commandLineArguments))
             {
-                PrintUsage();
-
-                return 1;
-            }
-        
-            for (int i = 0; i < args.Length; i++)
-            {
-                if (args[i] is "--folders-only" or "-nf")
-                {
-                    foldersOnly = true;
-                }
-                else if (args[i] is "--exclude" or "-e")
-                {
-                    if (i + 1 < args.Length)
-                    {
-                        excludeValue = args[++i];
-                    }
-                    else
-                    {
-                        Console.Error.WriteLine("Error: --exclude requires a comma-separated list of file names or extensions.");
-                    
-                        return 1;
-                    }
-                }
-                else
-                {
-                    positionalArgs.Add(args[i]);
-                }
-            }
-
-            if (positionalArgs.Count == 0)
-            {
-                PrintUsage();
-
                 return 1;
             }
 
-            // Build the exclude set (lowercased for case-insensitive matching)
-            HashSet<string> excludeSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (excludeValue != null)
+            if (!Directory.Exists(commandLineArguments!.FolderPath))
             {
-                string[] exludedEntries = excludeValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                foreach (string entry in exludedEntries)
-                {
-                    excludeSet.Add(entry);
-                }
-            }
-
-            // Warn if both --folders-only and --exclude are used
-            if (foldersOnly && excludeSet.Count > 0)
-            {
-                Console.WriteLine("Warning: --exclude is ignored because --folders-only is active. Files are already excluded.");
-            }
-
-            string folderPath = Path.GetFullPath(positionalArgs[0]);
-
-            if (!Directory.Exists(folderPath))
-            {
-                Console.Error.WriteLine($"Error: The path \"{folderPath}\" does not exist or is not a directory.");
+                Console.Error.WriteLine($"Error: The path \"{commandLineArguments!.FolderPath}\" does not exist or is not a directory.");
                 return 1;
             }
-
-            string outputFile = positionalArgs.Count >= 2 ? positionalArgs[1] : "structure.svg";
-
-            TreeNode root = BuildTree(folderPath, foldersOnly, excludeSet);
+            
+            TreeNode root = BuildTree(commandLineArguments!.FolderPath, 
+                commandLineArguments!.FoldersOnly,
+                commandLineArguments!.ExcludeSet);
             string svg = RenderSvg(root);
 
-            File.WriteAllText(outputFile, svg, new UTF8Encoding(false));
-            Console.WriteLine($"SVG written to: {Path.GetFullPath(outputFile)}");
+            File.WriteAllText(commandLineArguments!.OutputFile, 
+                svg,
+                new UTF8Encoding(false));
+            
+            Console.WriteLine($"SVG written to: {Path.GetFullPath(commandLineArguments!.OutputFile)}");
+            
             return 0;
 
 // ── Tree model ──────────────────────────────────────────────────────────────
