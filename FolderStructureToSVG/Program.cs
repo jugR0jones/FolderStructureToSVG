@@ -2,10 +2,9 @@
 
 internal class Program
 {
-    record TreeNode(string Name, bool IsDirectory)
+    private record TreeNode(in string Name, in bool IsDirectory)
     {
-
-        public List<TreeNode> Children { get; } = new();
+        public readonly List<TreeNode> Children = [];
     }
     
     private static int Main(string[] args)
