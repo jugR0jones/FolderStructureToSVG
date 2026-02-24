@@ -105,19 +105,19 @@ namespace FolderStructureToSVG
                 
                 return true;
             }
-        }
-        
-        private static void PrintUsage()
-        {
-            Console.WriteLine("Usage: FolderStructureToSVG <folder-path> [output-file] [options]");
-            Console.WriteLine();
-            Console.WriteLine("  <folder-path>       Path to the folder to visualize.");
-            Console.WriteLine("  [output-file]       Optional output SVG file path (default: structure.svg).");
-            Console.WriteLine();
-            Console.WriteLine("Options:");
-            Console.WriteLine("  --folders-only -nf  Only show folders, ignore files.");
-            Console.WriteLine("  --exclude, -e       Comma-separated list of file names or extensions to exclude.");
-            Console.WriteLine("                      e.g. --exclude .git,.bin,thumbs.db");
+            
+            private static void PrintUsage()
+            {
+                Console.WriteLine("Usage: FolderStructureToSVG <folder-path> [output-file] [options]");
+                Console.WriteLine();
+                Console.WriteLine("  <folder-path>       Path to the folder to visualize.");
+                Console.WriteLine("  [output-file]       Optional output SVG file path (default: structure.svg).");
+                Console.WriteLine();
+                Console.WriteLine("Options:");
+                Console.WriteLine("  --folders-only -nf  Only show folders, ignore files.");
+                Console.WriteLine("  --exclude, -e       Comma-separated list of file names or extensions to exclude.");
+                Console.WriteLine("                      e.g. --exclude .git,.bin,thumbs.db");
+            }
         }
     
         private static int Main(string[] args)
