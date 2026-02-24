@@ -153,31 +153,41 @@ namespace FolderStructureToSVG
 
 // ── Tree model ──────────────────────────────────────────────────────────────
 
-            TreeNode BuildTree(string path, bool dirsOnly, HashSet<string> exclusions)
+            TreeNode BuildTree(in string path,
+                in bool dirsOnly,
+                in HashSet<string> exclusions)
             {
-                DirectoryInfo dirInfo = new DirectoryInfo(path);
-                TreeNode node = new TreeNode(dirInfo.Name, IsDirectory: true);
+                DirectoryInfo pathDirectoryInfo = new(path);
+                TreeNode node = new(pathDirectoryInfo.Name, IsDirectory: true);
 
                 try
                 {
-                    foreach (DirectoryInfo dir in dirInfo.GetDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
-                        node.Children.Add(BuildTree(dir.FullName, dirsOnly, exclusions));
+                    DirectoryInfo[] directoryInfos = pathDirectoryInfo.GetDirectories();
+                    IOrderedEnumerable<DirectoryInfo> sortedDirectoryInfos = directoryInfos.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase);
+                    
+                    foreach (DirectoryInfo directoryInfo in sortedDirectoryInfos)
+                    {
+                        node.Children.Add(BuildTree(directoryInfo.FullName, dirsOnly, exclusions));
+                    }
 
                     if (!dirsOnly)
                     {
-                        foreach (FileInfo file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
+                        foreach (FileInfo file in pathDirectoryInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
                         {
                             // Skip if the file name or its extension matches an exclude entry
                             if (exclusions.Count > 0 &&
                                 (exclusions.Contains(file.Name) || exclusions.Contains(file.Extension)))
+                            {
                                 continue;
+                            }
 
                             node.Children.Add(new TreeNode(file.Name, IsDirectory: false));
                         }
                     }
                 }
-                catch (UnauthorizedAccessException)
+                catch (UnauthorizedAccessException unauthorizedAccessException)
                 {
+                    Console.Error.WriteLine($"Warning: Skipping \"{path}\" due to access restrictions. ({unauthorizedAccessException.Message})");
                 }
 
                 return node;
