@@ -12,7 +12,7 @@ internal class Program
         // Parse arguments
         bool foldersOnly = false;
         string? excludeValue = null;
-        var positionalArgs = new List<string>();
+        List<string> positionalArgs = new List<string>();
 
         for (int i = 0; i < args.Length; i++)
         {
@@ -51,10 +51,10 @@ internal class Program
         }
 
 // Build the exclude set (lowercased for case-insensitive matching)
-        var excludeSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> excludeSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (excludeValue != null)
         {
-            foreach (var entry in excludeValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (string entry in excludeValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
                 excludeSet.Add(entry);
         }
 
@@ -74,7 +74,7 @@ internal class Program
 
         string outputFile = positionalArgs.Count >= 2 ? positionalArgs[1] : "structure.svg";
 
-        var root = BuildTree(folderPath, foldersOnly, excludeSet);
+        TreeNode root = BuildTree(folderPath, foldersOnly, excludeSet);
         string svg = RenderSvg(root);
 
         File.WriteAllText(outputFile, svg, new UTF8Encoding(false));
@@ -85,17 +85,17 @@ internal class Program
 
         TreeNode BuildTree(string path, bool dirsOnly, HashSet<string> exclusions)
         {
-            var dirInfo = new DirectoryInfo(path);
-            var node = new TreeNode(dirInfo.Name, IsDirectory: true);
+            DirectoryInfo dirInfo = new DirectoryInfo(path);
+            TreeNode node = new TreeNode(dirInfo.Name, IsDirectory: true);
 
             try
             {
-                foreach (var dir in dirInfo.GetDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
+                foreach (DirectoryInfo dir in dirInfo.GetDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
                     node.Children.Add(BuildTree(dir.FullName, dirsOnly, exclusions));
 
                 if (!dirsOnly)
                 {
-                    foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
+                    foreach (FileInfo file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
                     {
                         // Skip if the file name or its extension matches an exclude entry
                         if (exclusions.Count > 0 &&
@@ -136,7 +136,7 @@ internal class Program
             CollectMetrics(rootNode, 0, ref maxDepth, ref maxNameLen);
             int svgWidth = paddingLeft + (maxDepth + 1) * indentWidth + iconWidth + maxNameLen * 9 + 40;
 
-            var sb = new StringBuilder();
+            StringBuilder sb = new StringBuilder();
             sb.Append($"""<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" id="s" width="{svgWidth}" height="{svgHeight}" viewBox="0 0 {svgWidth} {svgHeight}">""");
 
             // Styles with short class names
@@ -285,7 +285,7 @@ internal class Program
         int CountNodes(TreeNode node)
         {
             int count = 1;
-            foreach (var child in node.Children)
+            foreach (TreeNode child in node.Children)
                 count += CountNodes(child);
             return count;
         }
@@ -294,7 +294,7 @@ internal class Program
         {
             if (depth > maxDepth) maxDepth = depth;
             if (node.Name.Length > maxNameLen) maxNameLen = node.Name.Length;
-            foreach (var child in node.Children)
+            foreach (TreeNode child in node.Children)
                 CollectMetrics(child, depth + 1, ref maxDepth, ref maxNameLen);
         }
 
