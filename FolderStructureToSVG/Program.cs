@@ -27,6 +27,13 @@ internal class Program
         string? excludeValue = null;
         List<string> positionalArgs = new List<string>();
 
+        if (args.Length == 0)
+        {
+            PrintUsage();
+
+            return 1;
+        }
+        
         for (int i = 0; i < args.Length; i++)
         {
             if (args[i] is "--folders-only" or "-nf")
