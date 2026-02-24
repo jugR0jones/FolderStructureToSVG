@@ -187,7 +187,7 @@ namespace FolderStructureToSVG
                 }
                 catch (UnauthorizedAccessException unauthorizedAccessException)
                 {
-                    Console.Error.WriteLine($"Warning: Skipping \"{path}\" due to access restrictions. ({unauthorizedAccessException.Message})");
+                    Console.Error.WriteLine($"Warning: Skipping '{path}' due to access restrictions. ({unauthorizedAccessException.Message})");
                 }
 
                 return node;
@@ -362,25 +362,44 @@ namespace FolderStructureToSVG
                 sb.Append("</g>");
             }
 
-            int CountNodes(TreeNode node)
+            int CountNodes(in TreeNode node)
             {
                 int count = 1;
                 foreach (TreeNode child in node.Children)
+                {
                     count += CountNodes(child);
+                }
+                
                 return count;
             }
 
-            void CollectMetrics(TreeNode node, int depth, ref int maxDepth, ref int maxNameLen)
+            void CollectMetrics(in TreeNode node, 
+                in int depth,
+                ref int maxDepth,
+                ref int maxNameLen)
             {
-                if (depth > maxDepth) maxDepth = depth;
-                if (node.Name.Length > maxNameLen) maxNameLen = node.Name.Length;
+                if (depth > maxDepth)
+                {
+                    maxDepth = depth;
+                }
+                
+                if (node.Name.Length > maxNameLen)
+                {
+                    maxNameLen = node.Name.Length;
+                }
+
                 foreach (TreeNode child in node.Children)
+                {
                     CollectMetrics(child, depth + 1, ref maxDepth, ref maxNameLen);
+                }
             }
 
-            string EscapeXml(string text)
+            string EscapeXml(in string text)
             {
-                return text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
+                return text.Replace("&", "&amp;")
+                    .Replace("<", "&lt;")
+                    .Replace(">", "&gt;")
+                    .Replace("\"", "&quot;");
             }
         }
     }
