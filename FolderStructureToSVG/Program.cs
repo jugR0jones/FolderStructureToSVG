@@ -66,15 +66,18 @@ internal class Program
             return 1;
         }
 
-// Build the exclude set (lowercased for case-insensitive matching)
+        // Build the exclude set (lowercased for case-insensitive matching)
         HashSet<string> excludeSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (excludeValue != null)
         {
-            foreach (string entry in excludeValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            string[] exludedEntries = excludeValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (string entry in exludedEntries)
+            {
                 excludeSet.Add(entry);
+            }
         }
 
-// Warn if both --folders-only and --exclude are used
+        // Warn if both --folders-only and --exclude are used
         if (foldersOnly && excludeSet.Count > 0)
         {
             Console.WriteLine("Warning: --exclude is ignored because --folders-only is active. Files are already excluded.");
@@ -314,10 +317,9 @@ internal class Program
                 CollectMetrics(child, depth + 1, ref maxDepth, ref maxNameLen);
         }
 
-        string EscapeXml(string text) =>
-            text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
-
-
-
-}
+        string EscapeXml(string text)
+        {
+            return text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
+        }
+    }
 }
